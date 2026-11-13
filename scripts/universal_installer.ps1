@@ -9,6 +9,15 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+function Safe-ReadHost($prompt) {
+    if ($NonInteractive -or [Console]::IsInputRedirected) { return "" }
+    try {
+        return (Read-Host $prompt)
+    } catch {
+        return ""
+    }
+}
+
 function Write-Header {
     Clear-Host
     Write-Host "=====================================================================" -ForegroundColor Cyan
@@ -42,7 +51,7 @@ if (-not $AdbCmd) {
     Write-Host "[ERROR] Android Debug Bridge (adb) was not found on your system." -ForegroundColor Red
     Write-Host "Please install Android platform-tools or add adb to your PATH." -ForegroundColor Yellow
     Write-Host "Download: https://developer.android.com/tools/releases/platform-tools" -ForegroundColor Gray
-    Read-Host "Press Enter to exit..."
+    Safe-ReadHost "Press Enter to exit..."
     exit 1
 }
 
@@ -54,7 +63,7 @@ $connectedDevices = @(& $AdbCmd devices | Where-Object { $_ -match '\tdevice$' }
 if ($connectedDevices.Count -eq 0) {
     if (-not $DeviceIp) {
         Write-Host "No active Android TV devices detected via USB or network." -ForegroundColor Yellow
-        $DeviceIp = Read-Host "Enter your Android TV's IP address (e.g. 192.168.1.100), or press Enter to retry"
+        $DeviceIp = Safe-ReadHost "Enter your Android TV's IP address (e.g. 192.168.1.100), or press Enter to retry"
     }
     if ($DeviceIp) {
         Write-Host "Connecting to $DeviceIp:5555..." -ForegroundColor Cyan
@@ -70,7 +79,7 @@ if ($connectedDevices.Count -eq 0) {
     Write-Host " 1. Your TV and computer are on the same Wi-Fi / LAN network." -ForegroundColor Gray
     Write-Host " 2. Developer options & USB/Network debugging are enabled on the TV." -ForegroundColor Gray
     Write-Host " 3. You accepted the 'Allow USB Debugging' authorization prompt on the TV." -ForegroundColor Gray
-    Read-Host "Press Enter to exit..."
+    Safe-ReadHost "Press Enter to exit..."
     exit 1
 }
 
@@ -224,6 +233,9 @@ function Pick-Val($val, $fallback) {
 }
 
 # 4. Display Detected Device Profile Card
+$leanbackDisplay = if ($hasLeanback) { "Yes (Official TV OS)" } else { "No (Generic / AOSP)" }
+$installedHomesDisplay = if ($installedLaunchers.Count -gt 0) { $installedLaunchers -join ", " } else { "None detected" }
+
 Write-Host "---------------------------------------------------------------------" -ForegroundColor DarkGray
 Write-Host "                        DEVICE PROFILE DETECTED                      " -ForegroundColor White
 Write-Host "---------------------------------------------------------------------" -ForegroundColor DarkGray
@@ -235,9 +247,9 @@ Write-Host ("  Android OS:     " + "$release (API Level $sdk)") -ForegroundColor
 Write-Host ("  CPU ABI:        " + $abi) -ForegroundColor White
 Write-Host ("  Total RAM:      " + "$ramMb MB (~$ramGb GB)") -ForegroundColor White
 Write-Host ("  Free Storage:   " + "$availMb MB (~$availGb GB)") -ForegroundColor White
-Write-Host ("  Leanback TV:    " + (if ($hasLeanback) { "Yes (Official TV OS)" } else { "No (Generic / AOSP)" })) -ForegroundColor White
+Write-Host ("  Leanback TV:    " + $leanbackDisplay) -ForegroundColor White
 Write-Host ("  Active Home:    " + (Pick-Val $currentHome "None resolved")) -ForegroundColor White
-Write-Host ("  Installed Homes:" + (if ($installedLaunchers.Count -gt 0) { $installedLaunchers -join ", " } else { "None detected" })) -ForegroundColor White
+Write-Host ("  Installed Homes:" + $installedHomesDisplay) -ForegroundColor White
 Write-Host "---------------------------------------------------------------------" -ForegroundColor DarkGray
 Write-Host "  COMPATIBILITY:  " -NoNewline
 Write-Host "[$compatStatus]" -ForegroundColor $compatColor
@@ -248,7 +260,7 @@ Write-Host ""
 
 if (-not $canInstall) {
     Write-Host "[ABORT] This device cannot run Armaan tvOS due to operating system constraints." -ForegroundColor Red
-    Read-Host "Press Enter to exit..."
+    Safe-ReadHost "Press Enter to exit..."
     exit 1
 }
 
@@ -266,7 +278,7 @@ foreach ($c in $apkCandidates) {
 if (-not $ApkPath) {
     Write-Host "[ERROR] Could not find armaan-tvos-release.apk." -ForegroundColor Red
     Write-Host "Please run .\build.ps1 -Release first or place the release APK in the project directory." -ForegroundColor Yellow
-    Read-Host "Press Enter to exit..."
+    Safe-ReadHost "Press Enter to exit..."
     exit 1
 }
 Write-Host "[APK] Target: $ApkPath" -ForegroundColor DarkGray
@@ -294,7 +306,7 @@ Write-Host ""
 
 $selectedMode = $Mode
 if (-not $selectedMode) {
-    $selectedMode = Read-Host "Choose Mode (A / B / C / Q) [Default: A]"
+    $selectedMode = Safe-ReadHost "Choose Mode (A / B / C / Q) [Default: A]"
     if (-not $selectedMode) { $selectedMode = "A" }
 }
 
@@ -332,7 +344,7 @@ if ($selectedMode -eq "A") {
 } elseif ($selectedMode -eq "B") {
     Write-Host "`n--- Running Mode B: Full Launcher Setup ---" -ForegroundColor Cyan
     Write-Host "This will install Armaan tvOS and set it as your primary television launcher." -ForegroundColor White
-    $confirm = Read-Host "Are you sure you want to proceed? [y/N]"
+    $confirm = Safe-ReadHost "Are you sure you want to proceed? [y/N]"
     if ($confirm -notmatch '^(y|yes)$') {
         Write-Host "Full setup cancelled by user. No changes made." -ForegroundColor Yellow
         exit 0
@@ -392,7 +404,7 @@ if ($selectedMode -eq "A") {
             Write-Host "Disabling this package prevents HDMI 3 redirection and allows the button" -ForegroundColor Gray
             Write-Host "to open Armaan tvOS Home screen cleanly." -ForegroundColor Gray
             Write-Host ""
-            $applyXiaomi = Read-Host "Do you want to disable PartnerCustomizer for User 0? [y/N]"
+            $applyXiaomi = Safe-ReadHost "Do you want to disable PartnerCustomizer for User 0? [y/N]"
             if ($applyXiaomi -match '^(y|yes)$') {
                 & $AdbCmd -s $TargetDevice shell "pm disable-user --user 0 $xiaomiPartnerPkg"
                 Write-Host "[FIX APPLIED] Xiaomi Partner Customizer disabled." -ForegroundColor Green
@@ -421,4 +433,4 @@ if ($selectedMode -eq "A") {
 }
 
 Write-Host ""
-Read-Host "Press Enter to exit..."
+Safe-ReadHost "Press Enter to exit..."

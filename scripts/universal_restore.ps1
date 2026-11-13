@@ -7,6 +7,15 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+function Safe-ReadHost($prompt) {
+    if ([Console]::IsInputRedirected) { return "" }
+    try {
+        return (Read-Host $prompt)
+    } catch {
+        return ""
+    }
+}
+
 function Write-Header {
     Clear-Host
     Write-Host "=====================================================================" -ForegroundColor Cyan
@@ -38,7 +47,7 @@ function Find-Adb {
 $AdbCmd = Find-Adb
 if (-not $AdbCmd) {
     Write-Host "[ERROR] Android Debug Bridge (adb) was not found on your system." -ForegroundColor Red
-    Read-Host "Press Enter to exit..."
+    Safe-ReadHost "Press Enter to exit..."
     exit 1
 }
 
@@ -50,7 +59,7 @@ $connectedDevices = @(& $AdbCmd devices | Where-Object { $_ -match '\tdevice$' }
 if ($connectedDevices.Count -eq 0) {
     if (-not $DeviceIp) {
         Write-Host "No active Android TV devices detected via USB or network." -ForegroundColor Yellow
-        $DeviceIp = Read-Host "Enter your Android TV's IP address (e.g. 192.168.1.100), or press Enter to retry"
+        $DeviceIp = Safe-ReadHost "Enter your Android TV's IP address (e.g. 192.168.1.100), or press Enter to retry"
     }
     if ($DeviceIp) {
         Write-Host "Connecting to $DeviceIp:5555..." -ForegroundColor Cyan
@@ -62,7 +71,7 @@ if ($connectedDevices.Count -eq 0) {
 $connectedDevices = @(& $AdbCmd devices | Where-Object { $_ -match '\tdevice$' })
 if ($connectedDevices.Count -eq 0) {
     Write-Host "[ERROR] Could not connect to an Android TV device." -ForegroundColor Red
-    Read-Host "Press Enter to exit..."
+    Safe-ReadHost "Press Enter to exit..."
     exit 1
 }
 
@@ -124,7 +133,7 @@ Write-Host "--------------------------------------------------------------------
 if ($targetRestoreHome) {
     Write-Host "Recorded Previous Home Launcher: " -NoNewline
     Write-Host $targetRestoreHome -ForegroundColor Green
-    $restoreChoice = Read-Host "Restore this launcher as your default? [Y/n]"
+    $restoreChoice = Safe-ReadHost "Restore this launcher as your default? [Y/n]"
     if ($restoreChoice -and $restoreChoice -notmatch '^(y|yes)$') {
         $targetRestoreHome = $null
     }
@@ -140,7 +149,7 @@ if (-not $targetRestoreHome) {
             Write-Host "  [$($i+1)] $($availableLaunchers[$i])" -ForegroundColor Cyan
         }
         Write-Host "  [0] Skip restoring home activity" -ForegroundColor Gray
-        $pick = Read-Host "Select launcher number to set as default"
+        $pick = Safe-ReadHost "Select launcher number to set as default"
         $idx = 0
         if ([int]::TryParse($pick, [ref]$idx) -and $idx -ge 1 -and $idx -le $availableLaunchers.Count) {
             $targetRestoreHome = $availableLaunchers[$idx - 1]
@@ -175,7 +184,7 @@ if ($wasXiaomiPartnerDisabled -or ($mfg -match 'xiaomi|redmi')) {
 # 5. Accessibility Service Cleanup
 Write-Host "`n[3/3] Checking Accessibility Service..." -ForegroundColor Cyan
 if ($state["ACCESSIBILITY_ENABLED_BY_INSTALLER"] -eq "1") {
-    $resetAccess = Read-Host "Installer enabled the Armaan tvOS Accessibility service. Disable it now? [Y/n]"
+    $resetAccess = Safe-ReadHost "Installer enabled the Armaan tvOS Accessibility service. Disable it now? [Y/n]"
     if (-not $resetAccess -or $resetAccess -match '^(y|yes)$') {
         & $AdbCmd -s $TargetDevice shell "settings put secure enabled_accessibility_services com.android.talkback/com.google.android.marvin.talkback.TalkBackService" >$null 2>&1
         Write-Host "   + Accessibility service reset." -ForegroundColor Green
@@ -187,7 +196,7 @@ if ($state["ACCESSIBILITY_ENABLED_BY_INSTALLER"] -eq "1") {
 # 6. Optional Uninstallation
 Write-Host ""
 Write-Host "---------------------------------------------------------------------" -ForegroundColor DarkGray
-$uninstall = Read-Host "Would you like to uninstall Armaan tvOS from your TV? [y/N]"
+$uninstall = Safe-ReadHost "Would you like to uninstall Armaan tvOS from your TV? [y/N]"
 if ($uninstall -match '^(y|yes)$') {
     Write-Host "Uninstalling Armaan tvOS..." -ForegroundColor Cyan
     & $AdbCmd -s $TargetDevice uninstall com.techgenius.tvoslauncher
@@ -212,4 +221,4 @@ Write-Host "`n==================================================================
 Write-Host "                 RESTORE PROCEDURE COMPLETED SAFELY                 " -ForegroundColor White
 Write-Host "=====================================================================" -ForegroundColor Green
 Write-Host ""
-Read-Host "Press Enter to exit..."
+Safe-ReadHost "Press Enter to exit..."
