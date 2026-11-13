@@ -108,46 +108,37 @@ One press away, anytime, anywhere:
 
 ---
 
-## 🚀 Quick Installation
+## 🚀 Universal Hardware-Aware Installer
 
-### Method 1: 1-Click Automated Installer (Windows)
-1. Enable **Developer Options** & **USB Debugging** on your Android TV.
-2. Run `scripts/install.bat` and enter your TV's IP address.
-3. Accept the debugging prompt on your TV screen. The script will handle installation, permissions, and default home setup automatically.
+Armaan tvOS features an intelligent, device-detecting universal installer that safely inspects your Android TV before making any changes. It works across branded, assembled, and unknown Android TV motherboards without making dangerous assumptions.
 
-### Method 2: Manual ADB Commands
-```bash
-# 1. Connect to your TV
-adb connect <YOUR_TV_IP>:5555
+### 🛡️ Safety & Compatibility First
+- **Read-Only Probe**: Identifies manufacturer, brand, model, board platform, Android SDK level, total RAM, and storage before modifying configuration.
+- **Strict Zero-Assumption Rule**: Proprietary vendor commands (e.g. Xiaomi's partner customizer disable) are **NEVER** run on generic or non-matching hardware.
+- **Three Safe Modes**:
+  - **Mode A (Basic APK Install)**: Safest mode. Installs Armaan tvOS and leaves your factory launcher 100% active and untouched.
+  - **Mode B (Full Launcher Setup)**: Automatically backs up your current launcher to a local and on-device state file, configures accessibility, and sets Armaan tvOS as default home upon explicit confirmation.
+  - **Mode C (Manufacturer Fixes)**: Shows vendor-specific tweaks only when hardware is positively matched and confirmed.
+- **State-Aware 1-Click Rollback**: Restores your exact previous launcher without hardcoded guesses.
 
-# 2. Install Release APK
-adb install -r -g build/armaan-tvos-release.apk
+### Quick Start
+- **Windows**: Double-click `scripts/install.bat` and follow the on-screen device profile card.
+- **macOS / Linux**: Run `./scripts/install.sh`.
+- **Safe Rollback**: Run `scripts/restore.bat` (or `./scripts/restore.sh`) at any time to restore your original stock launcher.
 
-# 3. Grant Accessibility Service (Button Mapper & Control Center)
-adb shell settings put secure enabled_accessibility_services com.techgenius.tvoslauncher/.PowerService
-adb shell settings put secure accessibility_enabled 1
-
-# 4. Apply Xiaomi Mi Button Fix (if using a Xiaomi TV)
-adb shell pm disable-user --user 0 com.xiaomi.android.tvsetup.partnercustomizer
-
-# 5. Set Armaan tvOS as Default Home Launcher
-adb shell cmd package set-home-activity com.techgenius.tvoslauncher/.MainActivity
-adb shell am start -n com.techgenius.tvoslauncher/.MainActivity
-```
-
-For detailed guides, USB sideloading, or uninstallation instructions, see **[INSTALLATION.md](INSTALLATION.md)** and **[RESTORE_GUIDE.md](RESTORE_GUIDE.md)**.
+For manual ADB instructions, USB sideloading, or detailed troubleshooting, see **[INSTALLATION.md](INSTALLATION.md)** and **[RESTORE_GUIDE.md](RESTORE_GUIDE.md)**.
 
 ---
 
-## 📺 Device Compatibility
+## 📺 Device Compatibility & Classification Matrix
 
-Armaan tvOS is universally compatible with devices running **Android TV 9.0 through Android 14+**:
-- **Xiaomi Smart TVs**: MiTV-AXSO2 (dangalUHD), Mi Box 4K, Mi TV Stick
-- **Google TV & Android TV**: Chromecast with Google TV, TCL, Philips, Sony Bravia, NVIDIA Shield TV
-- **Fire TV Devices**: Fire TV Stick 4K / Max / Cube
-- **Budget TV Boxes & Projectors**: Onn 4K Box, Allwinner/Rockchip Android projectors
+Armaan tvOS evaluates hardware into 4 distinct compatibility classes:
+- **COMPATIBLE**: Branded Android TV & Google TV devices (Android 9.0+, ≥1 GB RAM) with full 60 FPS Liquid Glass experience.
+- **COMPATIBLE WITH LIMITATIONS**: Android 7.0–8.1 or devices with 512 MB–950 MB RAM (supported with tuned blur settings).
+- **NEEDS MANUAL VERIFICATION**: Assembled, white-label, or generic boards (Amlogic, Rockchip, Allwinner). Run Mode A to verify remote navigation.
+- **UNSUPPORTED**: Android 6.0 or below, or storage < 30 MB.
 
-See **[DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md)** for detailed hardware and chipset specifications.
+See **[DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md)** for the complete hardware audit and tested fixtures.
 
 ---
 

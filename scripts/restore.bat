@@ -1,51 +1,51 @@
 @echo off
 setlocal enabledelayedexpansion
 
+title Armaan tvOS — Universal Restore & Rollback
+
 echo =====================================================================
-echo                    ARMAAN tvOS - 1-CLICK RESTORE
+echo               ARMAAN tvOS — UNIVERSAL RESTORE & ROLLBACK
+echo             Safe, State-Aware Stock Configuration Recovery
 echo =====================================================================
-echo This script safely restores your Android TV back to stock configuration.
-echo Zero risk, zero data loss.
 echo.
 
+:: Locate ADB in PATH or standard installation locations
+set ADB_FOUND=0
 where adb >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] adb command not found in PATH.
+if %ERRORLEVEL% equ 0 (
+    set ADB_FOUND=1
+) else if exist "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" (
+    set "PATH=%LOCALAPPDATA%\Android\Sdk\platform-tools;%PATH%"
+    set ADB_FOUND=1
+) else if exist "%ANDROID_HOME%\platform-tools\adb.exe" (
+    set "PATH=%ANDROID_HOME%\platform-tools;%PATH%"
+    set ADB_FOUND=1
+) else if exist "%ProgramFiles%\Android\platform-tools\adb.exe" (
+    set "PATH=%ProgramFiles%\Android\platform-tools;%PATH%"
+    set ADB_FOUND=1
+) else if exist "%~dp0platform-tools\adb.exe" (
+    set "PATH=%~dp0platform-tools;%PATH%"
+    set ADB_FOUND=1
+) else if exist "C:\platform-tools\adb.exe" (
+    set "PATH=C:\platform-tools;%PATH%"
+    set ADB_FOUND=1
+)
+
+if %ADB_FOUND% equ 0 (
+    echo [ERROR] Android Debug Bridge (adb) was not found on your system.
+    echo Please install Android platform-tools or place adb.exe in this folder.
+    echo.
     pause
     exit /b 1
 )
 
-echo Checking for connected Android TV devices...
-adb devices
-echo.
-
-set /p TV_IP="Enter TV IP address (or press Enter if already connected): "
-if not "!TV_IP!"=="" (
-    echo Connecting to !TV_IP!:5555...
-    adb connect !TV_IP!:5555
+:: Launch the PowerShell universal restore script
+where powershell.exe >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0universal_restore.ps1" %*
+    exit /b %ERRORLEVEL%
 )
 
-echo.
-echo [1/4] Re-enabling Xiaomi Partner Customizer...
-adb shell pm enable com.xiaomi.android.tvsetup.partnercustomizer >nul 2>&1
-
-echo [2/4] Resetting Default Home Activity...
-adb shell cmd package set-home-activity com.google.android.tvlauncher/.MainActivity >nul 2>&1
-adb shell cmd package set-home-activity com.mitv.tvhome.atv/.MainActivity >nul 2>&1
-
-echo [3/4] Launching Stock Home Screen...
-adb shell input keyevent 3
-
-echo [4/4] Optional: Would you like to uninstall Armaan tvOS completely?
-set /p UNINSTALL="Type Y to uninstall, or press Enter to keep it installed as a secondary launcher: "
-if /i "!UNINSTALL!"=="Y" (
-    echo Uninstalling Armaan tvOS...
-    adb uninstall com.techgenius.tvoslauncher
-    echo Armaan tvOS uninstalled.
-)
-
-echo.
-echo =====================================================================
-echo             SUCCESS: Stock TV settings restored!
-echo =====================================================================
+echo [ERROR] Windows PowerShell is required to execute the state-aware restore script.
 pause
+exit /b 1
