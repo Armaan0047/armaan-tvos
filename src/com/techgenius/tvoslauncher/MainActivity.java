@@ -491,8 +491,8 @@ public class MainActivity extends Activity {
         if (SetupActivity.done(this) && !Perms.isDefaultHome(this) && !prefs.getBoolean("asked_default_home", false)) {
             prefs.edit().putBoolean("asked_default_home", true).apply();
             new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle(I18n.s(this, "Make tvOS Launcher your home screen?", "tvOS Launcher ana ekranınız yapılsın mı?"))
-                    .setMessage(I18n.s(this, "The Home button on the remote will open tvOS Launcher.", "Kumandadaki Ana Ekran düğmesi tvOS Launcher'ı açacaktır."))
+                    .setTitle(I18n.s(this, "Make Armaan tvOS your home screen?", "Armaan tvOS ana ekranınız yapılsın mı?"))
+                    .setMessage(I18n.s(this, "The Home button on the remote will open Armaan tvOS.", "Kumandadaki Ana Ekran düğmesi Armaan tvOS'u açacaktır."))
                     .setPositiveButton(I18n.s(this, "Make Home Screen", "Ana Ekran Yap"), (d, w) -> Perms.requestDefaultHome(this))
                     .setNegativeButton(I18n.s(this, "Not Now", "Şimdi Değil"), null).show();
         }
@@ -3590,8 +3590,34 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- keys
 
+    private long lastDpadDownTime = 0;
+    private int lastDpadKeyCode = 0;
+    private static final long DPAD_BURST_MIN_INTERVAL_MS = 65L;
+
+    private boolean filterNavigationBurst(KeyEvent event) {
+        if (event == null) return false;
+        int code = event.getKeyCode();
+        if (code != KeyEvent.KEYCODE_DPAD_UP && code != KeyEvent.KEYCODE_DPAD_DOWN
+                && code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) {
+            return false;
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (code == lastDpadKeyCode && event.getRepeatCount() > 0) {
+                return false;
+            }
+            if (code == lastDpadKeyCode && (now - lastDpadDownTime) < DPAD_BURST_MIN_INTERVAL_MS) {
+                return true;
+            }
+            lastDpadDownTime = now;
+            lastDpadKeyCode = code;
+        }
+        return false;
+    }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {
+        if (filterNavigationBurst(ev)) return true;
         if (ambientShowcase) {
             if (ev == null) return true;
             int action = ev.getAction();

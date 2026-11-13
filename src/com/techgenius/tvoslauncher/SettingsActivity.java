@@ -1538,7 +1538,31 @@ public class SettingsActivity extends Activity {
                             .setNegativeButton(tr("Cancel", "İptal"), null)
                             .show();
                 });
-        row(tr("Fix Home button (Launch tvOS Launcher)", "Ana Ekran tuşu düzeltmesi (tvOS Launcher'ı aç)"),
+        row(tr("Fix Mi / PatchWall Button (Launch Armaan tvOS)", "Mi / PatchWall Tuşu Düzeltmesi (Armaan tvOS'u Aç)"),
+                () -> ButtonMapper.isMiFixEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                () -> {
+                    boolean next = !ButtonMapper.isMiFixEnabled(this);
+                    ButtonMapper.setMiFixEnabled(this, next);
+                    refreshAll();
+                    showStatusMsg(next
+                            ? tr("Mi button fix enabled — pressing Mi button opens Armaan tvOS instead of HDMI 3.",
+                                 "Mi tuşu düzeltmesi etkinleştirildi — Mi tuşuna basıldığında HDMI 3 yerine Armaan tvOS açılacak.")
+                            : tr("Mi button fix disabled.",
+                                 "Mi tuşu düzeltmesi kapatıldı."));
+                });
+        row(tr("Home Button Long Press → Recent Apps", "Ana Ekran Tuşuna Uzun Basış → Son Uygulamalar"),
+                () -> ButtonMapper.isHomeLongPressRecentsEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                () -> {
+                    boolean next = !ButtonMapper.isHomeLongPressRecentsEnabled(this);
+                    ButtonMapper.setHomeLongPressRecentsEnabled(this, next);
+                    refreshAll();
+                    showStatusMsg(next
+                            ? tr("Home long-press enabled — holding Home button opens Recent Apps switcher.",
+                                 "Ana ekrana uzun basış etkinleştirildi — Ana ekran tuşuna basılı tutulduğunda Son Uygulamalar açılacak.")
+                            : tr("Home long-press disabled.",
+                                 "Ana ekrana uzun basış kapatıldı."));
+                });
+        row(tr("Fix Home button (Launch Armaan tvOS)", "Ana Ekran tuşu düzeltmesi (Armaan tvOS'u aç)"),
                 () -> ButtonMapper.isHomeFixEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
                 () -> {
                     boolean next = !ButtonMapper.isHomeFixEnabled(this);
@@ -1549,8 +1573,8 @@ public class SettingsActivity extends Activity {
                                 "Ana Ekran tuşu düzeltmesi açıldı — çalışması için yukarıdan Erişilebilirlik servisini de etkinleştirin."));
                     } else {
                         showStatusMsg(next
-                                ? tr("Home button fix enabled — pressing Home will launch tvOS Launcher.",
-                                     "Ana Ekran tuşu düzeltmesi etkinleştirildi — Ana Ekran tuşu tvOS Launcher'ı açacak.")
+                                ? tr("Home button fix enabled — pressing Home will launch Armaan tvOS.",
+                                     "Ana Ekran tuşu düzeltmesi etkinleştirildi — Ana Ekran tuşu Armaan tvOS'u açacak.")
                                 : tr("Home button fix disabled.",
                                      "Ana Ekran tuşu düzeltmesi kapatıldı."));
                     }
@@ -1873,9 +1897,9 @@ public class SettingsActivity extends Activity {
 
     void pageAbout() {
         section(tr("APPLICATION", "UYGULAMA"));
-        infoRow(tr("Home screen", "Ana ekran"), "tvOS Launcher", null);
-        infoRow(tr("Developer", "Geliştirici"), "techgenius", null);
-        infoRow(tr("Version", "Sürüm"), version(), null);
+        infoRow(tr("Home screen", "Ana ekran"), "Armaan tvOS", null);
+        infoRow(tr("Developer", "Geliştirici"), "Armaan", null);
+        infoRow(tr("Version", "Sürüm"), version() + " (Armaan Edition)", null);
         infoRow(tr("Settings kept", "Ayarların saklandığı yer"), tr("On this TV", "Bu TV'de"), null);
 
         section(tr("BACKUP & RESTORE", "YEDEKLEME VE GERİ YÜKLEME"));
@@ -3076,7 +3100,7 @@ public class SettingsActivity extends Activity {
         backSubMenuRow();
         section(tr("DEFAULT LAUNCHER SETUP (TCL / PHILIPS / GOOGLE TV)", "VARSAYILAN BAŞLATICI KURULUMU (TCL / PHILIPS / GOOGLE TV)"));
 
-        twoLineRow(tr("1. Set tvOS Launcher as Default via Local ADB", "1. Yerel ADB ile tvOS Launcher'ı Varsayılan Yap"),
+        twoLineRow(tr("1. Set Armaan tvOS as Default via Local ADB", "1. Yerel ADB ile Armaan tvOS'u Varsayılan Yap"),
                 () -> Perms.isDefaultHome(this) ? tr("Active", "Etkin") : tr("Run ROLE_HOME & set-home-activity ›", "ROLE_HOME ve set-home-activity çalıştır ›"),
                 () -> {
                     AlertDialog progress = dialog(tr("Setting Default Launcher…", "Varsayılan Başlatıcı Ayarlanıyor…"))
@@ -3102,7 +3126,7 @@ public class SettingsActivity extends Activity {
 
         twoLineRow(tr("3. Fix Home Button via Accessibility (Button Mapper)", "3. Erişilebilirlik ile Ana Ekran Tuşu Düzeltmesi"),
                 () -> ButtonMapper.isHomeFixEnabled(this)
-                        ? tr("On — Pressing Home launches tvOS Launcher", "Açık — Ana Ekran tuşu tvOS Launcher'ı açar")
+                        ? tr("On — Pressing Home launches Armaan tvOS", "Açık — Ana Ekran tuşu Armaan tvOS'u açar")
                         : tr("Off — Tap to enable Home button remap", "Kapalı — Ana Ekran tuşu yönlendirmesini açmak için dokunun"),
                 () -> {
                     boolean next = !ButtonMapper.isHomeFixEnabled(this);

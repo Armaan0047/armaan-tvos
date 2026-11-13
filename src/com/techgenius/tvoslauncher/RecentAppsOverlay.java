@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -70,12 +71,44 @@ public final class RecentAppsOverlay {
     private static TextView activeRamText;
     private static View activeRamTrack;
     private static View activeRamFill;
+    private static TextView activeStorageText;
+    private static View activeStorageTrack;
+    private static View activeStorageFill;
     private static View activeEmptyView;
     private static View activeHintView;
     private static ObjectAnimator scrollAnimator;
     private static int currentScrollX;
     private static Bitmap cachedShadowBmp;
     private static Bitmap cachedSceneBlur;
+
+    public static final Set<String> PROTECTED_PACKAGES = new HashSet<>(Arrays.asList(
+            "android",
+            "com.android.systemui",
+            "com.android.settings",
+            "com.android.tv.settings",
+            "com.android.vending",
+            "com.google.android.gms",
+            "com.google.android.gsf",
+            "com.google.android.katniss",
+            "com.google.android.apps.mediashell",
+            "com.google.android.tv.frameworkpackagestubs",
+            "com.google.android.inputmethod.latin",
+            "com.droidlogic.tvinput",
+            "com.droidlogic.tv.settings",
+            "com.xiaomi.mitv.bluetoothremote",
+            "com.xiaomi.mitv.remoteservice",
+            "com.mitv.tvhome",
+            "com.techgenius.tvoslauncher",
+            "com.armaan.tvos"
+    ));
+
+    public static boolean isProtectedPackage(String pkg) {
+        if (pkg == null) return true;
+        if (PROTECTED_PACKAGES.contains(pkg)) return true;
+        if (pkg.startsWith("com.android.inputmethod") || pkg.startsWith("com.google.android.inputmethod")) return true;
+        if (pkg.startsWith("com.xiaomi.mitv") || pkg.startsWith("com.droidlogic")) return true;
+        return false;
+    }
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final PathInterpolator SCROLL_EASE = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
@@ -470,11 +503,56 @@ public final class RecentAppsOverlay {
         tlp.leftMargin = dp(unit, 55);
         root.addView(title, tlp);
 
-        // 3. Top-Right RAM Usage Liquid Glass Pill
+        // 3. Top-Right RAM & Storage Liquid Glass Pills
+        LinearLayout pillsRow = new LinearLayout(c);
+        pillsRow.setOrientation(LinearLayout.HORIZONTAL);
+        pillsRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        int pillH = dp(unit, 40);
+
+        // 3a. Storage Pill
+        LinearLayout storagePill = new LinearLayout(c);
+        storagePill.setOrientation(LinearLayout.HORIZONTAL);
+        storagePill.setGravity(Gravity.CENTER_VERTICAL);
+        MainActivity.LiquidGlass stgGlass = new MainActivity.LiquidGlass(
+                pillH / 2f, 0x28FFFFFF, glassBackdrop, screenW, screenH, unit).adaptive().darker(0x55);
+        stgGlass.lens = dp(unit, 6);
+        storagePill.setBackground(stgGlass);
+        storagePill.setPadding(dp(unit, 16), 0, dp(unit, 16), 0);
+
+        TextView storageText = new TextView(c);
+        storageText.setTextColor(Color.WHITE);
+        storageText.setTypeface(Ui.font(c, "medium"));
+        Ui.textSize(storageText, 13f);
+        storagePill.addView(storageText, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        FrameLayout storageTrack = new FrameLayout(c);
+        GradientDrawable sTrackBg = new GradientDrawable();
+        sTrackBg.setCornerRadius(dp(unit, 3));
+        sTrackBg.setColor(0x4DFFFFFF);
+        storageTrack.setBackground(sTrackBg);
+
+        View storageFill = new View(c);
+        GradientDrawable sFillBg = new GradientDrawable();
+        sFillBg.setCornerRadius(dp(unit, 3));
+        sFillBg.setColor(Color.WHITE);
+        storageFill.setBackground(sFillBg);
+        storageTrack.addView(storageFill, new FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        LinearLayout.LayoutParams sklp = new LinearLayout.LayoutParams(dp(unit, 70), dp(unit, 6));
+        sklp.leftMargin = dp(unit, 10);
+        storagePill.addView(storageTrack, sklp);
+
+        LinearLayout.LayoutParams splp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, pillH);
+        splp.rightMargin = dp(unit, 12);
+        pillsRow.addView(storagePill, splp);
+
+        // 3b. RAM Pill
         LinearLayout ramPill = new LinearLayout(c);
         ramPill.setOrientation(LinearLayout.HORIZONTAL);
         ramPill.setGravity(Gravity.CENTER_VERTICAL);
-        int pillH = dp(unit, 40);
         MainActivity.LiquidGlass pillGlass = new MainActivity.LiquidGlass(
                 pillH / 2f, 0x28FFFFFF, glassBackdrop, screenW, screenH, unit).adaptive().darker(0x55);
         pillGlass.lens = dp(unit, 6);
@@ -501,15 +579,23 @@ public final class RecentAppsOverlay {
         ramFill.setBackground(fillBg);
         ramTrack.addView(ramFill, new FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        LinearLayout.LayoutParams rklp = new LinearLayout.LayoutParams(dp(unit, 90), dp(unit, 6));
-        rklp.leftMargin = dp(unit, 12);
+        LinearLayout.LayoutParams rklp = new LinearLayout.LayoutParams(dp(unit, 70), dp(unit, 6));
+        rklp.leftMargin = dp(unit, 10);
         ramPill.addView(ramTrack, rklp);
+
+        pillsRow.addView(ramPill, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, pillH));
 
         FrameLayout.LayoutParams rplp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, pillH, Gravity.TOP | Gravity.END);
         rplp.topMargin = dp(unit, 28);
         rplp.rightMargin = dp(unit, 55);
-        root.addView(ramPill, rplp);
+        root.addView(pillsRow, rplp);
+
+        activeStorageText = storageText;
+        activeStorageTrack = storageTrack;
+        activeStorageFill = storageFill;
+        updateStorageUsage(c);
 
         activeRamText = ramText;
         activeRamTrack = ramTrack;
@@ -952,7 +1038,10 @@ public final class RecentAppsOverlay {
         for (int i = lastAppIdx; i >= 0; i--) {
             final View child = activeRow.getChildAt(i);
             if (child.getTag() instanceof RecentAppItem) {
-                allPkgs.add(((RecentAppItem) child.getTag()).pkg);
+                String p = ((RecentAppItem) child.getTag()).pkg;
+                if (!isProtectedPackage(p)) {
+                    allPkgs.add(p);
+                }
             }
             long delay = (long) (lastAppIdx - i) * 70L;
             MAIN.postDelayed(() -> closeSingleCard(c, child, cardW, screenH, unit, false), delay);
@@ -981,7 +1070,7 @@ public final class RecentAppsOverlay {
     }
 
     private static void removeAndKillApp(Context c, String pkg) {
-        if (pkg == null || pkg.isEmpty()) return;
+        if (pkg == null || pkg.isEmpty() || isProtectedPackage(pkg)) return;
         long now = System.currentTimeMillis();
 
         SharedPreferences recSp = c.getSharedPreferences("recents", Context.MODE_PRIVATE);
@@ -1051,6 +1140,37 @@ public final class RecentAppsOverlay {
                 ViewGroup.LayoutParams lp = activeRamFill.getLayoutParams();
                 lp.width = Math.round(w * frac);
                 activeRamFill.setLayoutParams(lp);
+            });
+        } catch (Exception ignored) { }
+    }
+
+    public static void updateStorageUsage(Context c) {
+        if (activeStorageText == null || activeStorageFill == null || activeStorageTrack == null) return;
+        try {
+            android.os.StatFs stat = new android.os.StatFs(android.os.Environment.getDataDirectory().getPath());
+            long blockSize = stat.getBlockSizeLong();
+            long totalBytes = stat.getBlockCountLong() * blockSize;
+            long freeBytes = stat.getAvailableBlocksLong() * blockSize;
+            long usedBytes = Math.max(0, totalBytes - freeBytes);
+            float usedRatio = totalBytes > 0 ? (float) usedBytes / totalBytes : 0f;
+
+            double gb = 1073741824.0;
+            String usedStr = String.format(Locale.US, "%.1f GB", usedBytes / gb);
+            String totalStr = String.format(Locale.US, "%.1f GB", totalBytes / gb);
+            activeStorageText.setText(I18n.s(c,
+                    "Storage " + usedStr + " of " + totalStr,
+                    "Depolama " + usedStr + " / " + totalStr));
+
+            activeStorageTrack.post(() -> {
+                if (activeStorageFill == null || activeStorageTrack == null) return;
+                int trackW = activeStorageTrack.getWidth();
+                int fillW = Math.max(0, Math.round(trackW * usedRatio));
+                ViewGroup.LayoutParams lp = activeStorageFill.getLayoutParams();
+                lp.width = fillW;
+                activeStorageFill.setLayoutParams(lp);
+                if (activeStorageFill.getBackground() instanceof GradientDrawable) {
+                    ((GradientDrawable) activeStorageFill.getBackground()).setColor(usedRatio > 0.85f ? 0xFFFF9F0A : Color.WHITE);
+                }
             });
         } catch (Exception ignored) { }
     }

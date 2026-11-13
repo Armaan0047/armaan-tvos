@@ -1061,7 +1061,15 @@ public final class ControlPanelOverlay {
     }
 
     public static String memoryState(Context c) {
-        return Math.round(memoryUsed(c) * 100) + I18n.s(c, "% used · Recent Apps", "% kullanımda · Son Uygulamalar");
+        int ramPercent = Math.round(memoryUsed(c) * 100);
+        int storagePercent = 0;
+        try {
+            android.os.StatFs stat = new android.os.StatFs(android.os.Environment.getDataDirectory().getPath());
+            long total = stat.getBlockCountLong();
+            long free = stat.getAvailableBlocksLong();
+            if (total > 0) storagePercent = (int) Math.round((double)(total - free) * 100.0 / total);
+        } catch (Throwable ignored) { }
+        return ramPercent + "% RAM · " + (storagePercent > 0 ? storagePercent + "% Storage" : "Recent Apps");
     }
 
     private static void attachMemoryBar(Context c, View tile, float unit) {
@@ -1099,7 +1107,7 @@ public final class ControlPanelOverlay {
         ActivityManager am = c.getSystemService(ActivityManager.class);
         List<String> apps = new ArrayList<>();
         for (String p : c.getSharedPreferences("clean", Context.MODE_PRIVATE).getString("recent", "").split(",")) {
-            if (!p.isEmpty() && Suggestions.installed(c, p)) apps.add(p);
+            if (!p.isEmpty() && Suggestions.installed(c, p) && !RecentAppsOverlay.isProtectedPackage(p)) apps.add(p);
         }
         if (apps.isEmpty()) {
             Toast.makeText(c, I18n.s(c, "No apps to close", "Kapatılacak uygulama yok"), Toast.LENGTH_SHORT).show();

@@ -1,14 +1,39 @@
+param(
+    [switch]$Release
+)
+
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-if (-not $env:JAVA_HOME) {
-    $jdkCandidate = "C:\Users\asen4\AppData\Local\Programs\Microsoft\jdk-17.0.10.7-hotspot"
-    if (Test-Path $jdkCandidate) {
-        $env:JAVA_HOME = $jdkCandidate
-    }
+function Test-ValidJdk($dir) {
+    return ($dir -and (Test-Path "$dir\bin\java.exe") -and (Test-Path "$dir\bin\javac.exe"))
 }
-if ($env:JAVA_HOME) {
+
+$foundJdk = $null
+if (Test-ValidJdk $env:JAVA_HOME) {
+    $foundJdk = $env:JAVA_HOME
+} elseif (Test-ValidJdk $env:JDK_HOME) {
+    $foundJdk = $env:JDK_HOME
+} elseif (Test-ValidJdk "$env:USERPROFILE\.gemini\antigravity\scratch\jdk-17\jdk-17.0.21+9") {
+    $foundJdk = "$env:USERPROFILE\.gemini\antigravity\scratch\jdk-17\jdk-17.0.21+9"
+} elseif (Test-Path "$env:ProgramFiles\Java\jdk-*") {
+    foreach ($cand in (Get-Item "$env:ProgramFiles\Java\jdk-*")) {
+        if (Test-ValidJdk $cand.FullName) { $foundJdk = $cand.FullName; break }
+    }
+} elseif (Test-Path "$env:ProgramFiles\Microsoft\jdk-*") {
+    foreach ($cand in (Get-Item "$env:ProgramFiles\Microsoft\jdk-*")) {
+        if (Test-ValidJdk $cand.FullName) { $foundJdk = $cand.FullName; break }
+    }
+} elseif (Get-Command javac -ErrorAction SilentlyContinue) {
+    $cand = Split-Path -Parent (Split-Path -Parent (Get-Command javac).Source)
+    if (Test-ValidJdk $cand) { $foundJdk = $cand }
+}
+
+if ($foundJdk) {
+    $env:JAVA_HOME = $foundJdk
     $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+} else {
+    Write-Warning "Could not find full JDK 17+ home with bin\java.exe and bin\javac.exe. Ensure JAVA_HOME is set."
 }
 
 $SDK = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { "$env:LOCALAPPDATA\Android\Sdk" }
@@ -66,14 +91,29 @@ try {
 & "$BT\zipalign.exe" -f 4 build\unsigned.apk build\aligned.apk
 if ($LASTEXITCODE -ne 0) { throw "zipalign failed" }
 
-$KS = "debug.keystore"
-if (-not (Test-Path $KS)) {
-    & keytool -genkeypair -keystore $KS -storepass android -keypass android -alias debug `
-        -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=tvOS Launcher debug" | Out-Null
+if ($Release) {
+    $KS = "release.keystore"
+    $pass = if ($env:RELEASE_KEYSTORE_PASS) { $env:RELEASE_KEYSTORE_PASS } else { "armaan-tvos-2026" }
+    $alias = if ($env:RELEASE_KEY_ALIAS) { $env:RELEASE_KEY_ALIAS } else { "armaan-tvos" }
+    if (-not (Test-Path $KS)) {
+        & keytool -genkeypair -keystore $KS -storepass $pass -keypass $pass -alias $alias `
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Armaan tvOS, O=Armaan, C=IN" | Out-Null
+    }
+    & "$BT\apksigner.bat" sign --ks $KS --ks-pass "pass:$pass" --key-pass "pass:$pass" --ks-key-alias $alias `
+        --out build\armaan-tvos-release.apk build\aligned.apk
+    if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
+    Copy-Item -Force build\armaan-tvos-release.apk build\armaan-tvos.apk
+    Copy-Item -Force build\armaan-tvos-release.apk build\tvos-home.apk
+    Write-Host "Built production release APK: build\armaan-tvos-release.apk"
+} else {
+    $KS = "debug.keystore"
+    if (-not (Test-Path $KS)) {
+        & keytool -genkeypair -keystore $KS -storepass android -keypass android -alias debug `
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Armaan tvOS debug" | Out-Null
+    }
+    & "$BT\apksigner.bat" sign --ks $KS --ks-pass pass:android --key-pass pass:android `
+        --out build\armaan-tvos.apk build\aligned.apk
+    if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
+    Copy-Item -Force build\armaan-tvos.apk build\tvos-home.apk
+    Write-Host "Built development APK: build\armaan-tvos.apk"
 }
-
-& "$BT\apksigner.bat" sign --ks $KS --ks-pass pass:android --key-pass pass:android `
-    --out build\tvos-home.apk build\aligned.apk
-if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
-
-Write-Host "Built build\tvos-home.apk"

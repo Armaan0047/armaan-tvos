@@ -390,7 +390,7 @@ public class SetupActivity extends Activity {
             handler.postDelayed(cycle[0], 2200);
         };
         handler.postDelayed(cycle[0], 2400);
-        TextView s = subtitle(tr("Let\u2019s set up tvOS Launcher.", "tvOS Launcher\u2019\u0131 kural\u0131m."));
+        TextView s = subtitle(tr("Let\u2019s set up Armaan tvOS.", "Armaan tvOS\u2019\u0131 kural\u0131m."));
         Ui.textSize(s, 16);
         ((LinearLayout.LayoutParams) s.getLayoutParams()).bottomMargin = u(16);
         LinearLayout l = scrollableList();
@@ -421,7 +421,7 @@ public class SetupActivity extends Activity {
             }
         }
         TextView by = new TextView(this);
-        by.setText("by techgenius");
+        by.setText("by Armaan");
         by.setTextColor(0x80FFFFFF);
         by.setTypeface(Ui.font(this, "regular"));
         Ui.textSize(by, 13);

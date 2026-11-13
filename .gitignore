@@ -1,7 +1,9 @@
 build/
 *.apk
+*.keystore
 signing.keystore
 debug.keystore
+release.keystore
 *.jks
 keystore-password.txt
 .DS_Store

@@ -33,6 +33,7 @@ import java.util.Set;
  */
 public final class ButtonMapper {
 
+    public static final String TARGET_HOME = "home";
     public static final String TARGET_CONTROL_PANEL = "control_panel";
     public static final String TARGET_RECENT_APPS = "recent_apps";
     public static final String TARGET_INPUTS_OVERLAY = "inputs_overlay";
@@ -176,6 +177,71 @@ public final class ButtonMapper {
     }
 
     private static final String KEY_HOME_FIX = "home_button_fix";
+    private static final String KEY_HOME_LONG_PRESS_RECENTS = "home_long_press_recents";
+    private static final String KEY_MI_BUTTON_FIX = "mi_button_fix";
+
+    private static final long HOME_LONG_PRESS_TIMEOUT_MS = 500L;
+    private static volatile boolean homeKeyDownActive = false;
+    private static volatile boolean homeLongPressTriggered = false;
+    private static Context homeEventAppContext;
+
+    private static final Runnable homeLongPressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (homeKeyDownActive) {
+                homeLongPressTriggered = true;
+                final Context ctx = homeEventAppContext != null ? homeEventAppContext
+                        : (PowerService.instance != null ? PowerService.instance.getApplicationContext() : null);
+                if (ctx != null) {
+                    MAIN.post(() -> {
+                        try {
+                            ControlPanelOverlay.dismiss();
+                        } catch (Throwable ignored) { }
+                        RecentAppsOverlay.show(ctx);
+                    });
+                }
+            }
+        }
+    };
+
+    /**
+     * Home button long-press (default ON): holding HOME for 500ms opens the Recent Apps switcher.
+     * Single short tap remains standard Home action.
+     */
+    public static boolean isHomeLongPressRecentsEnabled(Context c) {
+        if (c == null) return true;
+        SharedPreferences sp = prefs(c);
+        if (!sp.contains(KEY_HOME_LONG_PRESS_RECENTS)) {
+            sp.edit().putBoolean(KEY_HOME_LONG_PRESS_RECENTS, true).apply();
+            return true;
+        }
+        return sp.getBoolean(KEY_HOME_LONG_PRESS_RECENTS, true);
+    }
+
+    public static void setHomeLongPressRecentsEnabled(Context c, boolean enabled) {
+        if (c == null) return;
+        prefs(c).edit().putBoolean(KEY_HOME_LONG_PRESS_RECENTS, enabled).apply();
+    }
+
+    /**
+     * Mi / PatchWall button fix: intercepts KEYCODE_BUTTON_5 (192) and KEYCODE_PROG_RED (183)
+     * before Xiaomi GlobalKeyReceiver can fall back into startLiveTV() / HDMI 3.
+     * Opens Armaan tvOS Home screen instead.
+     */
+    public static boolean isMiFixEnabled(Context c) {
+        if (c == null) return true;
+        SharedPreferences sp = prefs(c);
+        if (!sp.contains(KEY_MI_BUTTON_FIX)) {
+            sp.edit().putBoolean(KEY_MI_BUTTON_FIX, true).apply();
+            return true;
+        }
+        return sp.getBoolean(KEY_MI_BUTTON_FIX, true);
+    }
+
+    public static void setMiFixEnabled(Context c, boolean enabled) {
+        if (c == null) return;
+        prefs(c).edit().putBoolean(KEY_MI_BUTTON_FIX, enabled).apply();
+    }
 
     /**
      * Home button fix (off by default): when on, tvOS Launcher's accessibility service catches the
@@ -404,10 +470,14 @@ public final class ButtonMapper {
 
     public static String keyLabel(Context c, int keyCode) {
         switch (keyCode) {
-            case KeyEvent.KEYCODE_PROG_RED: return I18n.s(c, "Red Button", "Kırmızı Tuş");
+            case KeyEvent.KEYCODE_PROG_RED: return I18n.s(c, "Red / PatchWall Button", "Kırmızı / PatchWall Tuşu");
             case KeyEvent.KEYCODE_PROG_GREEN: return I18n.s(c, "Green Button", "Yeşil Tuş");
             case KeyEvent.KEYCODE_PROG_YELLOW: return I18n.s(c, "Yellow Button", "Sarı Tuş");
             case KeyEvent.KEYCODE_PROG_BLUE: return I18n.s(c, "Blue Button", "Mavi Tuş");
+            case KeyEvent.KEYCODE_BUTTON_5: return I18n.s(c, "Mi / PatchWall Button", "Mi / PatchWall Tuşu");
+            case KeyEvent.KEYCODE_BUTTON_4: return I18n.s(c, "Prime Video Button", "Prime Video Tuşu");
+            case KeyEvent.KEYCODE_BUTTON_3: return I18n.s(c, "Netflix Button", "Netflix Tuşu");
+            case KeyEvent.KEYCODE_BUTTON_6: return I18n.s(c, "Netflix Button (Alt)", "Netflix Tuşu (Alt)");
             case KeyEvent.KEYCODE_MENU: return I18n.s(c, "Menu Button", "Menü Tuşu");
             case KeyEvent.KEYCODE_GUIDE: return I18n.s(c, "Guide Button", "Rehber Tuşu");
             case KeyEvent.KEYCODE_INFO: return I18n.s(c, "Info Button", "Bilgi Tuşu");
@@ -441,6 +511,9 @@ public final class ButtonMapper {
 
     public static String targetLabel(Context c, String target) {
         if (target == null || target.isEmpty()) return I18n.s(c, "None", "Yok");
+        if (TARGET_HOME.equals(target)) {
+            return I18n.s(c, "Armaan tvOS Home", "Armaan tvOS Ana Ekran");
+        }
         if (TARGET_CONTROL_PANEL.equals(target)) {
             return I18n.s(c, "Control Panel", "Denetim Paneli");
         }
@@ -541,9 +614,38 @@ public final class ButtonMapper {
                 return false;
         }
 
-        // Home button fix (off by default): intercept KEYCODE_HOME via Accessibility to launch tvOS Launcher
+        // Home button fix (off by default) & Home button long-press -> Recent Apps (on by default)
         if (code == KeyEvent.KEYCODE_HOME) {
-            if (isHomeFixEnabled(c)) {
+            final boolean longPressRecents = isHomeLongPressRecentsEnabled(c);
+            final boolean homeFix = isHomeFixEnabled(c);
+
+            if (longPressRecents) {
+                final Context appCtx = c.getApplicationContext();
+                homeEventAppContext = appCtx;
+                if (action == KeyEvent.ACTION_DOWN) {
+                    if (ev.getRepeatCount() == 0) {
+                        homeKeyDownActive = true;
+                        homeLongPressTriggered = false;
+                        MAIN.removeCallbacks(homeLongPressRunnable);
+                        MAIN.postDelayed(homeLongPressRunnable, HOME_LONG_PRESS_TIMEOUT_MS);
+                    }
+                    return true;
+                } else if (action == KeyEvent.ACTION_UP) {
+                    MAIN.removeCallbacks(homeLongPressRunnable);
+                    if (homeKeyDownActive) {
+                        homeKeyDownActive = false;
+                        if (homeLongPressTriggered) {
+                            homeLongPressTriggered = false;
+                            return true;
+                        } else {
+                            MAIN.post(() -> launchHome(appCtx));
+                            return true;
+                        }
+                    }
+                    return true;
+                }
+                return false;
+            } else if (homeFix) {
                 if (action == KeyEvent.ACTION_DOWN && ev.getRepeatCount() == 0) {
                     final Context appCtx = c.getApplicationContext();
                     MAIN.post(() -> launchHome(appCtx));
@@ -574,6 +676,17 @@ public final class ButtonMapper {
         String t2 = getTarget(c, code, TAP_DOUBLE);
         String t3 = getTarget(c, code, TAP_TRIPLE);
         if (t1.isEmpty() && t2.isEmpty() && t3.isEmpty()) {
+            // Mi / PatchWall Button Fix:
+            // On Xiaomi TVs (such as MiTV-AXSO2), pressing the Mi button sends KEYCODE_BUTTON_5 (192) or KEYCODE_PROG_RED (183).
+            // When stock PatchWall is debloated, system GlobalKeyReceiver falls back into startLiveTV() which switches to HDMI 3.
+            // With Mi button fix enabled, intercept the event and launch Armaan tvOS Home screen instead.
+            if (isMiFixEnabled(c) && (code == KeyEvent.KEYCODE_BUTTON_5 || code == KeyEvent.KEYCODE_PROG_RED)) {
+                if (action == KeyEvent.ACTION_DOWN && ev.getRepeatCount() == 0) {
+                    final Context appCtx = c.getApplicationContext();
+                    MAIN.post(() -> launchHome(appCtx));
+                }
+                return true; // Consume event completely so system GlobalKeyReceiver never switches to HDMI 3
+            }
             return false;
         }
 
@@ -625,6 +738,12 @@ public final class ButtonMapper {
 
     public static void executeTarget(Context c, String target) {
         if (target == null || target.isEmpty()) return;
+        if (TARGET_HOME.equals(target)) {
+            RecentAppsOverlay.dismiss();
+            ControlPanelOverlay.dismiss();
+            launchHome(c);
+            return;
+        }
         if (TARGET_CONTROL_PANEL.equals(target)) {
             RecentAppsOverlay.dismiss();
             ControlPanelOverlay.toggle(c);
@@ -793,6 +912,10 @@ public final class ButtonMapper {
 
         List<String> labels = new ArrayList<>();
         List<String> targets = new ArrayList<>();
+
+        // 0. Armaan tvOS Home
+        labels.add("🏠  " + I18n.s(a, "Armaan tvOS Home", "Armaan tvOS Ana Ekran"));
+        targets.add(TARGET_HOME);
 
         // 1. Control Panel (Overlay)
         labels.add("🎛  " + I18n.s(a, "Control Panel (Overlay)", "Denetim Paneli (Ekran Üstü)"));
