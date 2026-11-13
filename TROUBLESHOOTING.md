@@ -78,3 +78,18 @@ Armaan tvOS includes a built-in, standalone TV Inputs overlay:
 1. Open the **Control Center** (or map any remote button to **Inputs Overlay**).
 2. Click **Inputs**.
 3. The glass overlay will display all physical ports (**HDMI 1, HDMI 2, HDMI 3, AV**) with live signal detection.
+
+---
+
+### 7. Windows CMD Installer Error: `'Safe' is not recognized` or `was unexpected at this time`
+**Cause**:
+Older batch scripts contained unquoted command chaining characters (`&`) or multi-byte UTF-8 characters paired with Unix LF line breaks, which causes the legacy Windows `cmd.exe` parser to miscalculate character offsets.
+
+**Solution**:
+This has been permanently fixed in the latest repository release.
+The Windows batch scripts (`scripts/install.bat` and `scripts/restore.bat`) now feature:
+1. Pure ASCII character encoding with strict Windows CRLF (`\r\n`) line endings.
+2. Safe command separation without unescaped `&` operators.
+3. Linear ADB binary discovery (`goto :FoundAdb`) avoiding premature closing parentheses from `(x86)` path expansions.
+4. Full support for folder paths containing spaces and modern Windows 10 & 11 terminals.
+Simply pull the latest repository updates or download the newest release zip.
